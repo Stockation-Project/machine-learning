@@ -1,0 +1,10 @@
+# Lingkungan Virtual
+venv/
+env/
+
+# File Cache Python
+__pycache__/
+*.pyc
+
+# Konfigurasi / Rahasia
+.env
