@@ -14,27 +14,9 @@ from core.data_fetcher import DataFetcher
 logger = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────────────────
-# DATA CLASS — SATU KEJADIAN ANOMALI
-# ─────────────────────────────────────────────────────────
-
 @dataclass
 class AnomalyEvent:
-    """
-    Representasi satu kejadian anomali.
-    ooooooo
 
-    Attributes:
-        ticker          : kode saham
-        date            : tanggal anomali terjadi
-        anomaly_type    : jenis anomali (price_spike, volume_spike, dll)
-        value           : nilai aktual saat anomali
-        normal_range    : tuple (batas_bawah, batas_atas) nilai normal
-        zscore          : z-score nilai tersebut (seberapa ekstrem)
-        severity        : "low" | "medium" | "high" | "critical"
-        description     : penjelasan anomali dalam bahasa manusia
-        method          : metode deteksi yang menemukan ini
-    """
     ticker: str
     date: date
     anomaly_type: str
@@ -86,19 +68,7 @@ class AnomalyEvent:
         }
 
 
-# ─────────────────────────────────────────────────────────
-# KELAS UTAMA
-# ─────────────────────────────────────────────────────────
-
 class AnomalyDetector:
-    """
-    Detektor anomali saham berbasis data historis yfinance.
-
-    Args:
-        ticker  : kode saham (misal "BBCA.JK")
-        config  : override parameter ANOMALY_CONFIG (opsional)
-        fetcher : instance DataFetcher (inject untuk testing)
-    """
 
     def __init__(
         self,
@@ -110,26 +80,12 @@ class AnomalyDetector:
         self.cfg = {**ANOMALY_CONFIG, **(config or {})}
         self.fetcher = fetcher or DataFetcher()
 
-    # ─────────────────────────────────────────────
-    # PUBLIC — DETEKSI UNTUK SATU TICKER
-    # ─────────────────────────────────────────────
-
     def detect(
         self,
         period_key: str = "1_tahun",
         target_date: Optional[str] = None,
     ) -> list[AnomalyEvent]:
-        """
-        Jalankan semua deteksi anomali dan kembalikan hasilnya.
 
-        Args:
-            period_key  : periode data historis
-            target_date : jika diisi (format "YYYY-MM-DD"), hanya return
-                          anomali pada tanggal itu. Jika None, semua tanggal.
-
-        Returns:
-            List AnomalyEvent, diurutkan dari yang paling baru.
-        """
         ohlcv = self.fetcher.get_ohlcv(self.ticker, period_key)
 
         if len(ohlcv) < self.cfg["min_data_points"]:
@@ -167,9 +123,6 @@ class AnomalyDetector:
         logger.info(f"{self.ticker}: {len(all_events)} anomali ditemukan ({period_key})")
         return all_events
 
-    # ─────────────────────────────────────────────
-    # PUBLIC — BATCH UNTUK BANYAK TICKER
-    # ─────────────────────────────────────────────
 
     @staticmethod
     def batch_detect(
@@ -178,19 +131,7 @@ class AnomalyDetector:
         config: Optional[dict] = None,
         fetcher: Optional[DataFetcher] = None,
     ) -> dict[str, list[AnomalyEvent]]:
-        """
-        Jalankan deteksi anomali untuk banyak ticker sekaligus.
-        Cocok untuk job malam/sore yang dijalankan terjadwal.
-
-        Args:
-            tickers    : list ticker
-            period_key : periode data
-            config     : override config
-            fetcher    : DataFetcher instance
-
-        Returns:
-            dict mapping ticker → list AnomalyEvent
-        """
+        
         fetcher = fetcher or DataFetcher()
         results = {}
 
@@ -226,19 +167,8 @@ class AnomalyDetector:
         print(f"  Total anomali: {total}")
         print("=" * 60)
 
-    # ─────────────────────────────────────────────
-    # PRIVATE — DETEKSI PRICE ANOMALY
-    # ─────────────────────────────────────────────
 
     def _detect_price_anomaly(self, df: pd.DataFrame) -> list[AnomalyEvent]:
-        """
-        Deteksi lonjakan / penurunan harga ekstrem menggunakan Z-Score rolling.
-
-        Logika:
-        - Hitung rolling mean dan rolling std dari harga Close
-        - Z-score = (harga_hari_ini - rolling_mean) / rolling_std
-        - Jika |z-score| > threshold → anomali
-        """
         events = []
         window = self.cfg["rolling_window"]
         threshold = self.cfg["zscore_threshold"]
@@ -279,19 +209,8 @@ class AnomalyDetector:
 
         return events
 
-    # ─────────────────────────────────────────────
-    # PRIVATE — DETEKSI VOLUME ANOMALY
-    # ─────────────────────────────────────────────
-
     def _detect_volume_anomaly(self, df: pd.DataFrame) -> list[AnomalyEvent]:
-        """
-        Deteksi lonjakan volume tidak wajar menggunakan IQR dan Z-Score.
 
-        Kombinasi dua metode untuk mengurangi false positive:
-        - Z-Score: jika volume jauh dari rata-rata rolling
-        - IQR: jika volume di luar fence 1.5×IQR
-        Anomali hanya dicatat jika keduanya sepakat.
-        """
         events = []
         window = self.cfg["rolling_window"]
         threshold = self.cfg["zscore_threshold"]
@@ -344,18 +263,8 @@ class AnomalyDetector:
 
         return events
 
-    # ─────────────────────────────────────────────
-    # PRIVATE — DETEKSI RETURN ANOMALY
-    # ─────────────────────────────────────────────
-
     def _detect_return_anomaly(self, df: pd.DataFrame) -> list[AnomalyEvent]:
-        """
-        Deteksi return harian yang sangat ekstrem.
 
-        Return harian = (Close_hari_ini / Close_kemarin) - 1
-        Anomali jika return melampaui threshold Z-Score pada distribusi
-        rolling return.
-        """
         events = []
         window = self.cfg["rolling_window"]
         threshold = self.cfg["zscore_threshold"]
@@ -395,20 +304,9 @@ class AnomalyDetector:
 
         return events
 
-    # ─────────────────────────────────────────────
-    # PRIVATE — DETEKSI GAP
-    # ─────────────────────────────────────────────
 
     def _detect_gap(self, df: pd.DataFrame) -> list[AnomalyEvent]:
-        """
-        Deteksi gap harga: selisih Open hari ini vs Close kemarin.
 
-        Gap terjadi ketika harga pembukaan berbeda jauh dari penutupan
-        hari sebelumnya, biasanya karena berita besar setelah jam bursa.
-
-        Gap up  : Open > Close_kemarin + threshold%
-        Gap down: Open < Close_kemarin - threshold%
-        """
         events = []
         threshold_pct = self.cfg["gap_threshold_pct"] / 100
 
@@ -448,9 +346,6 @@ class AnomalyDetector:
 
         return events
 
-    # ─────────────────────────────────────────────
-    # PRIVATE — HELPERS
-    # ─────────────────────────────────────────────
 
     def _severity_from_zscore(self, abs_z: float) -> str:
         """Tentukan severity berdasarkan nilai absolut z-score."""
@@ -475,10 +370,7 @@ class AnomalyDetector:
             return "low"
 
     def _deduplicate(self, events: list[AnomalyEvent]) -> list[AnomalyEvent]:
-        """
-        Hapus duplikat: jika tanggal + anomaly_type sama dari metode berbeda,
-        simpan hanya yang severity-nya paling tinggi.
-        """
+
         seen: dict[tuple, AnomalyEvent] = {}
         severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
