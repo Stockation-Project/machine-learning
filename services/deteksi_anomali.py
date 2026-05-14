@@ -1,41 +1,4 @@
-"""
-deteksi_anomali.py
-==================
-Modul deteksi anomali harga dan volume saham.
-
-Dirancang untuk dijalankan setiap sore (scheduled job) setelah bursa tutup.
-Mendeteksi perilaku tidak wajar pada:
-  - Harga (spike, crash, gap open)
-  - Volume (lonjakan volume tidak normal)
-  - Return harian (pergerakan ekstrem)
-
-Metode deteksi yang dipakai:
-  - Z-Score     : berapa standar deviasi dari rata-rata rolling
-  - IQR         : nilai di luar fence 1.5×IQR dari Q1/Q3
-  - Gap Detector: selisih open hari ini vs close kemarin (dalam %)
-
-Output berupa list AnomalyEvent lengkap dengan:
-  - Tanggal anomali
-  - Tipe anomali
-  - Nilai saat anomali + rentang normal
-  - Severity (low / medium / high / critical)
-  - Deskripsi yang bisa dibaca manusia
-
-Cara pakai:
-    from deteksi_anomali import AnomalyDetector
-
-    detector = AnomalyDetector(ticker="BBCA.JK")
-    events = detector.detect(period_key="1_tahun")
-
-    for ev in events:
-        print(ev.summary())
-
-    # Atau run untuk banyak ticker sekaligus
-    report = AnomalyDetector.batch_detect(
-        tickers=["BBCA.JK", "TLKM.JK"],
-        period_key="6_bulan",
-    )
-"""
+# auuu 
 
 import logging
 from dataclasses import dataclass, field
@@ -59,6 +22,7 @@ logger = logging.getLogger(__name__)
 class AnomalyEvent:
     """
     Representasi satu kejadian anomali.
+    ooooooo
 
     Attributes:
         ticker          : kode saham
@@ -100,6 +64,7 @@ class AnomalyEvent:
             f"  Normal   : {self.normal_range[0]:,.4f} — {self.normal_range[1]:,.4f}\n"
             f"  Z-Score  : {self.zscore:.2f}σ\n"
             f"  Ket.     : {self.description}\n"
+            print("euuu")
         )
 
     def to_dict(self) -> dict:
