@@ -1,93 +1,238 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from typing import List, Optional
+from fastapi import FastAPI
+from sqlalchemy import create_engine
+from apscheduler.schedulers.background import BackgroundScheduler
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
-# Mengimpor class yang sudah dibuat tim AI-mu
-from services.deteksi_anomali import AnomalyDetector
-from services.optimasi_portofolio import PortfolioOptimizer
+import os
+import pandas as pd
+import yfinance as yf
+import numpy as np
 
-app = FastAPI(
-    title="Stockation AI API",
-    description="Microservice AI untuk memproses anomali dan optimasi portofolio",
-    version="1.0.0"
+# =====================================
+# FASTAPI
+# =====================================
+
+app = FastAPI()
+
+# =====================================
+# DATABASE CONNECTION
+# =====================================
+load_dotenv()
+
+DATABASE_URL = os.getenv("NEON_DB")
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True
 )
 
-# ---------------------------------------------------------
-# DTO (Data Transfer Object) - Padanan req.body di Express
-# ---------------------------------------------------------
-class OptimizeRequest(BaseModel):
-    tickers: List[str]
-    risk_profile: str = "moderat"
-    risk_tolerance: Optional[float] = None
-    period_key: str = "1_tahun"
+# =====================================
+# UPDATE FUNCTION
+# =====================================
 
-class RecommendRequest(BaseModel):
-    universe: List[str]
-    top_n: int = 5
-    risk_profile: str = "moderat"
-    risk_tolerance: Optional[float] = None
-    period_key: str = "1_tahun"
+def update_stock_data():
 
-# ---------------------------------------------------------
-# ENDPOINTS
-# ---------------------------------------------------------
+    print("RUNNING DAILY UPDATE...")
 
-@app.get("/api/ai/anomalies/{ticker}")
-def get_anomalies(ticker: str, period_key: str = "1_tahun"):
-    """
-    Endpoint untuk mendapatkan histori anomali dari satu saham (Dipakai di Halaman Detail Saham)
-    """
-    try:
-        detector = AnomalyDetector(ticker=ticker)
-        events = detector.detect(period_key=period_key)
-        
-        return {
-            "success": True,
-            "ticker": ticker,
-            # Class dari timmu sudah punya method .to_dict(), ini sangat memudahkan!
-            "anomalies": [ev.to_dict() for ev in events] 
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Gagal mendeteksi anomali: {str(e)}")
+    metadata_df = pd.read_sql(
+        "SELECT ticker FROM stock_metadata",
+        engine
+    )
 
-@app.post("/api/ai/optimize")
-def optimize_portfolio(req: OptimizeRequest):
-    """
-    Endpoint untuk menghitung bobot optimal dari saham yang dipilih user
-    """
-    try:
-        optimizer = PortfolioOptimizer(
-            risk_profile=req.risk_profile,
-            risk_tolerance=req.risk_tolerance
-        )
-        result = optimizer.optimize(tickers=req.tickers, period_key=req.period_key)
-        
-        return {
-            "success": True,
-            "data": result.to_dict()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    tickers = metadata_df["ticker"].tolist()
 
-@app.post("/api/ai/recommend")
-def recommend_portfolio(req: RecommendRequest):
+    for ticker in tickers:
+
+        yf_ticker = ticker + ".JK"
+
+        try:
+
+            # =====================================
+            # GET LAST DATE
+            # =====================================
+
+            query = f"""
+            SELECT MAX(date)
+            FROM stock_prices
+            WHERE ticker = '{ticker}'
+            """
+
+            last_date = pd.read_sql(
+                query,
+                engine
+            ).iloc[0, 0]
+
+            # =====================================
+            # FETCH NEW DATA
+            # =====================================
+
+            df = yf.download(
+                yf_ticker,
+                start=last_date,
+                progress=False,
+                auto_adjust=False
+            )
+
+            if df.empty:
+                continue
+
+            df = df.reset_index()
+
+            # flatten multiindex
+            df.columns = [
+                col[0] if isinstance(col, tuple) else col
+                for col in df.columns
+            ]
+
+            df["ticker"] = ticker
+
+            df = df[
+                [
+                    "Date",
+                    "ticker",
+                    "Open",
+                    "High",
+                    "Low",
+                    "Close",
+                    "Volume"
+                ]
+            ]
+
+            df.columns = [
+                "date",
+                "ticker",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume"
+            ]
+
+            # remove duplicates
+            existing_dates = pd.read_sql(
+                f"""
+                SELECT date
+                FROM stock_prices
+                WHERE ticker = '{ticker}'
+                """,
+                engine
+            )
+
+            df = df[
+                ~df["date"].isin(existing_dates["date"])
+            ]
+
+            # =====================================
+            # INSERT STOCK PRICES
+            # =====================================
+
+            df.to_sql(
+                "stock_prices",
+                engine,
+                if_exists="append",
+                index=False
+            )
+
+            # =====================================
+            # FEATURE ENGINEERING
+            # =====================================
+
+            feature_df = df.copy()
+
+            feature_df["daily_return"] = (
+                feature_df["close"].pct_change()
+            )
+
+            feature_df["log_return"] = np.log(
+                feature_df["close"]
+                /
+                feature_df["close"].shift(1)
+            )
+
+            feature_df["var_95"] = (
+                feature_df["daily_return"]
+                .rolling(30)
+                .quantile(0.05)
+            )
+
+            feature_df = feature_df[
+                [
+                    "date",
+                    "ticker",
+                    "daily_return",
+                    "log_return",
+                    "var_95"
+                ]
+            ]
+
+            feature_df.to_sql(
+                "stock_features",
+                engine,
+                if_exists="append",
+                index=False
+            )
+
+            print(f"UPDATED: {ticker}")
+
+        except Exception as e:
+            print(f"ERROR {ticker}: {e}")
+
+# =====================================
+# SCHEDULER
+# =====================================
+
+scheduler = BackgroundScheduler()
+
+# tiap hari jam 17:00
+scheduler.add_job(
+    update_stock_data,
+    "cron",
+    hour=17,
+    minute=0
+)
+
+scheduler.start()
+
+# =====================================
+# API ENDPOINTS
+# =====================================
+
+@app.get("/")
+def root():
+    return {"message": "Stockation API running"}
+
+@app.get("/stocks/{ticker}")
+def get_stock_data(ticker: str):
+
+    query = f"""
+    SELECT *
+    FROM stock_prices
+    WHERE ticker = '{ticker}'
+    ORDER BY date
     """
-    Endpoint untuk meminta sistem memilihkan saham terbaik + bobotnya (Dipakai saat create portofolio)
+
+    df = pd.read_sql(query, engine)
+
+    return df.to_dict(orient="records")
+
+@app.get("/features/{ticker}")
+def get_features(ticker: str):
+
+    query = f"""
+    SELECT *
+    FROM stock_features
+    WHERE ticker = '{ticker}'
+    ORDER BY date
     """
-    try:
-        optimizer = PortfolioOptimizer(
-            risk_profile=req.risk_profile,
-            risk_tolerance=req.risk_tolerance
-        )
-        result = optimizer.recommend(
-            universe=req.universe, 
-            top_n=req.top_n, 
-            period_key=req.period_key
-        )
-        
-        return {
-            "success": True,
-            "data": result.to_dict()
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+
+    df = pd.read_sql(query, engine)
+
+    return df.to_dict(orient="records")
+
+@app.get("/update")
+def manual_update():
+
+    update_stock_data()
+
+    return {"message": "Update completed"}
