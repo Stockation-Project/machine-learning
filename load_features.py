@@ -73,6 +73,37 @@ df["var_95"] = (
 )
 
 # =====================================
+# ROLLING VOLATILITY
+# 30-day rolling std
+# annualized volatility
+# =====================================
+
+df["rolling_volatility"] = (
+    df.groupby("ticker")["daily_return"]
+    .transform(
+        lambda x: x.rolling(30).std() * np.sqrt(252)
+    )
+)
+
+# =====================================
+# CUMULATIVE MAX PRICE
+# =====================================
+
+df["cum_max"] = (
+    df.groupby("ticker")["close"]
+    .cummax()
+)
+
+# =====================================
+# DRAWDOWN
+# =====================================
+
+df["drawdown"] = (
+    (df["close"] - df["cum_max"])
+    / df["cum_max"]
+)
+
+# =====================================
 # KEEP NEEDED COLUMNS
 # =====================================
 
