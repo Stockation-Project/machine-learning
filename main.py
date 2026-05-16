@@ -5,6 +5,7 @@ from typing import List, Optional
 # Mengimpor class yang sudah dibuat tim AI-mu
 from services.deteksi_anomali import AnomalyDetector
 from services.optimasi_portofolio import PortfolioOptimizer
+from services.clustering_service import ClusteringService
 
 app = FastAPI(
     title="Stockation AI API",
@@ -68,6 +69,22 @@ def optimize_portfolio(req: OptimizeRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/ai/clustering")
+def get_stock_clustering():
+    """
+    Endpoint untuk mendapatkan klasifikasi resiko saham (Low, Medium, High)
+    berdasarkan model clustering yang sudah dilatih.
+    """
+    try:
+        service = ClusteringService()
+        mapping = service.classify_all_stocks()
+        return {
+            "success": True,
+            "data": mapping
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ai/recommend")
 def recommend_portfolio(req: RecommendRequest):
