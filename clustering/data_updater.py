@@ -1,13 +1,13 @@
 import pandas as pd
 import yfinance as yf
 
-from src.config import (
+from clustering.config import (
     IDX80_TICKERS,
     RAW_DATA_PATH,
     START_DATE,
 )
 
-from src.logger import setup_logger
+from clustering.logger import setup_logger
 
 logger = setup_logger()
 

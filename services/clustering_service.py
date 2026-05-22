@@ -9,92 +9,220 @@ from pathlib import Path
 from clustering.preprocessor import SequencePreprocessor
 from clustering.autoencoder import CNNAutoencoder
 from clustering.clustering import StockClusterModel
+from clustering.data_updater import IDX80DataUpdater
+
 
 class ClusteringService:
+
     def __init__(self):
-        # Base path to clustering directory
-        self.base_path = Path(__file__).resolve().parent.parent / "clustering"
-        
-        # Paths to models and data
+
+        # Base path
+        self.base_path = (
+            Path(__file__).resolve().parent.parent / "clustering"
+        )
+
+        # Paths to models
         self.paths = {
             "autoencoder": self.base_path / "autoencoder.keras",
             "encoder": self.base_path / "encoder.keras",
             "kmeans": self.base_path / "kmeans.pkl",
             "latent_scaler": self.base_path / "latent_scaler.pkl",
             "sequence_scaler": self.base_path / "sequence_scaler.pkl",
-            "raw_data": self.base_path / "idx80_raw.parquet"
         }
 
     def classify_all_stocks(self):
-        """
-        Processes historical data and returns a mapping of ticker -> risk_level
-        """
-        try:
-            # 1. Load Data
-            if not self.paths["raw_data"].exists():
-                raise FileNotFoundError(f"Data file not found at {self.paths['raw_data']}")
-            
-            try:
-                # Coba load dengan engine fastparquet karena pyarrow sering error 'No type extension'
-                df = pd.read_parquet(str(self.paths["raw_data"]), engine='fastparquet')
-            except Exception as e:
-                print(f"Fastparquet failed, trying pyarrow: {e}")
-                df = pd.read_parquet(str(self.paths["raw_data"]))
 
-            
-            # 2. Preprocess
-            # We use the same settings as trained (seq_length=60 based on model error)
-            preprocessor = SequencePreprocessor(seq_length=60, scaler_path=str(self.paths["sequence_scaler"]))
+        """
+        Update dataset, preprocess,
+        extract embeddings, predict clusters,
+        and map clusters to risk levels.
+
+        Returns:
+            {
+                "BBCA.JK": "Low",
+                "BBRI.JK": "Medium",
+                ...
+            }
+        """
+
+        try:
+
+            # ======================================
+            # UPDATE DATASET
+            # ======================================
+
+            updater = IDX80DataUpdater()
+
+            df = updater.update_master_dataset()
+
+            # Ensure datetime
+            df["Date"] = pd.to_datetime(
+                df["Date"]
+            )
+
+            # ======================================
+            # PREPROCESS
+            # ======================================
+
+            preprocessor = SequencePreprocessor(
+                seq_length=60,
+                scaler_path=str(
+                    self.paths["sequence_scaler"]
+                )
+            )
+
+            # IMPORTANT:
+            # Load EXISTING scaler (do not refit)
             preprocessor.load_scaler()
-            
-            X_seq, tickers, _ = preprocessor.create_sequences(df)
-            X_scaled = preprocessor.transform(X_seq)
-            
-            # 3. Extract Embeddings
-            ae = CNNAutoencoder()
-            ae.load_models(
-                autoencoder_path=str(self.paths["autoencoder"]),
-                encoder_path=str(self.paths["encoder"])
+
+            X_seq, tickers, end_dates = (
+                preprocessor.create_sequences(df)
             )
-            
-            embeddings = ae.extract_embeddings(X_scaled)
-            stock_embeddings = ae.aggregate_stock_embeddings(embeddings, tickers)
-            
-            # 4. Cluster
+
+            # Transform only
+            X_scaled = preprocessor.transform(
+                X_seq
+            )
+
+            # IMPORTANT:
+            # Add channel dimension for CNN
+            X_scaled = X_scaled[..., None]
+
+            # ======================================
+            # LOAD ENCODER
+            # ======================================
+
+            model = CNNAutoencoder()
+
+            model.load_models(
+                autoencoder_path=str(
+                    self.paths["autoencoder"]
+                ),
+                encoder_path=str(
+                    self.paths["encoder"]
+                ),
+            )
+
+            # ======================================
+            # EXTRACT EMBEDDINGS
+            # ======================================
+
+            embeddings = model.extract_embeddings(
+                X_scaled
+            )
+
+            # ======================================
+            # AGGREGATE STOCK EMBEDDINGS
+            # ======================================
+
+            stock_embeddings = (
+                model.aggregate_stock_embeddings(
+                    embeddings,
+                    tickers
+                )
+            )
+
+            # ======================================
+            # LOAD CLUSTER MODEL
+            # ======================================
+
             cluster_model = StockClusterModel()
+
             cluster_model.load_models(
-                kmeans_path=str(self.paths["kmeans"]),
-                scaler_path=str(self.paths["latent_scaler"])
+                kmeans_path=str(
+                    self.paths["kmeans"]
+                ),
+                scaler_path=str(
+                    self.paths["latent_scaler"]
+                )
             )
-            
-            labels = cluster_model.predict(stock_embeddings.values)
-            
-            # 5. Map Cluster to Risk Level based on Volatility
-            # Calculate volatility for each stock to help rank clusters
-            stock_volatility = df.groupby("Ticker")["Close"].pct_change().groupby(df["Ticker"]).std()
-            
+
+            # ======================================
+            # PREDICT CLUSTERS
+            # ======================================
+
+            labels = cluster_model.predict(
+                stock_embeddings.values
+            )
+
+            # cluster_model.save_models("kmeans.pkl")
+            # ======================================
+            # CREATE RESULT DATAFRAME
+            # ======================================
+
             result_df = pd.DataFrame({
                 "ticker": stock_embeddings.index,
                 "cluster": labels
             })
-            
-            # Join with volatility to calculate mean volatility per cluster
-            result_with_vol = result_df.set_index("ticker").join(stock_volatility.rename("volatility"))
-            cluster_vol = result_with_vol.groupby("cluster")["volatility"].mean().sort_values()
-            
-            # Map sorted clusters to labels
-            # Smallest volatility = Low, Middle = Medium, Highest = High
+
+            # ======================================
+            # CALCULATE VOLATILITY
+            # ======================================
+
+            stock_volatility = (
+                df.groupby("Ticker")["Close"]
+                .pct_change()
+                .groupby(df["Ticker"])
+                .std()
+            )
+
+            # ======================================
+            # JOIN VOLATILITY
+            # ======================================
+
+            result_with_vol = (
+                result_df
+                .set_index("ticker")
+                .join(
+                    stock_volatility.rename(
+                        "volatility"
+                    )
+                )
+            )
+
+            # ======================================
+            # MEAN VOLATILITY PER CLUSTER
+            # ======================================
+
+            cluster_vol = (
+                result_with_vol
+                .groupby("cluster")["volatility"]
+                .mean()
+                .sort_values()
+            )
+
+            # ======================================
+            # MAP CLUSTERS TO RISK LEVEL
+            # Smallest volatility = Low
+            # Middle volatility   = Medium
+            # Highest volatility  = High
+            # ======================================
+
             risk_mapping = {
                 cluster_vol.index[0]: "Low",
                 cluster_vol.index[1]: "Medium",
                 cluster_vol.index[2]: "High"
             }
-            
-            result_df["risk_level"] = result_df["cluster"].map(risk_mapping)
-            
-            # Convert to dictionary { "BBCA": "Low", ... }
-            return result_df.set_index("ticker")["risk_level"].to_dict()
+
+            result_df["risk_level"] = (
+                result_df["cluster"]
+                .map(risk_mapping)
+            )
+
+            # ======================================
+            # RETURN FINAL DICTIONARY
+            # ======================================
+
+            return (
+                result_df
+                .set_index("ticker")["risk_level"]
+                .to_dict()
+            )
 
         except Exception as e:
-            print(f"Error in clustering service: {str(e)}")
+
+            print(
+                f"Error in clustering service: {str(e)}"
+            )
+
             raise e
