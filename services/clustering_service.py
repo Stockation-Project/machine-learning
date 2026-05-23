@@ -144,8 +144,6 @@ class ClusteringService:
             labels = cluster_model.predict(
                 stock_embeddings.values
             )
-
-            # cluster_model.save_models("kmeans.pkl")
             # ======================================
             # CREATE RESULT DATAFRAME
             # ======================================
@@ -208,6 +206,24 @@ class ClusteringService:
                 result_df["cluster"]
                 .map(risk_mapping)
             )
+
+            # ======================================
+            # PRINT SUMMARY PER RISK LEVEL
+            # ======================================
+
+            print("\n" + "=" * 50)
+            print("  CLUSTERING RESULT SUMMARY")
+            print("=" * 50)
+
+            for risk_level in ["Low", "Medium", "High"]:
+                tickers_in_group = result_df[
+                    result_df["risk_level"] == risk_level
+                ]["ticker"].tolist()
+
+                print(f"\n📊 {risk_level} Risk ({len(tickers_in_group)} saham):")
+                print("   " + ", ".join(tickers_in_group))
+
+            print("\n" + "=" * 50 + "\n")
 
             # ======================================
             # RETURN FINAL DICTIONARY

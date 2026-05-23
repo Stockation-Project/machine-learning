@@ -428,7 +428,7 @@ def engineer_features(features: pd.DataFrame, prices: pd.DataFrame) -> pd.DataFr
         df.groupby("ticker")["daily_return"]
         .transform(lambda x: x.rolling(30).std() * np.sqrt(252))
     )
-
+ 
     price_cum_max = (
         prices.sort_values(["ticker", "date"])
         .groupby("ticker")["close"]
