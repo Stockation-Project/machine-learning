@@ -1,13 +1,13 @@
 import pandas as pd
 import yfinance as yf
 
-from src.config import (
+from clustering.config import (
     IDX80_TICKERS,
     RAW_DATA_PATH,
     START_DATE,
 )
 
-from src.logger import setup_logger
+from clustering.logger import setup_logger
 
 logger = setup_logger()
 
@@ -58,6 +58,11 @@ class IDX80DataUpdater:
             except Exception as e:
                 logger.error(f"Failed downloading {ticker}: {e}")
 
+        # Guard: jika tidak ada data yang berhasil didownload, return kosong
+        if not all_data:
+            logger.warning("Tidak ada data baru yang berhasil didownload.")
+            return pd.DataFrame()
+
         combined = pd.concat(all_data, ignore_index=True)
 
         combined["Date"] = pd.to_datetime(combined["Date"])
@@ -79,15 +84,26 @@ class IDX80DataUpdater:
 
         # Find latest available date
         latest_date = historical_data["Date"].max()
+        today = pd.Timestamp.now().normalize()
 
         logger.info(
             f"Latest historical date: {latest_date}"
         )
 
+        # Guard: jika data sudah up-to-date sampai hari ini, skip download
+        if latest_date >= today:
+            logger.info("Data sudah up-to-date, melewati proses download.")
+            return historical_data
+
         # Download only newer data
         new_data = self.download_data(
             start_date=(latest_date + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
         )
+
+        # Guard: jika tidak ada data baru, kembalikan data lama
+        if new_data.empty:
+            logger.info("Tidak ada data baru tersedia, menggunakan data historis.")
+            return historical_data
 
         # Combine datasets
         combined = pd.concat(
