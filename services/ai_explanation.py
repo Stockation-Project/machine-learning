@@ -1,19 +1,19 @@
 import os
-import google.generativeai as genai
+from groq import Groq
 from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
 
-# Konfigurasi Gemini API
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Konfigurasi Groq API
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 class AIExplanationService:
     def __init__(self):
-        if not GEMINI_API_KEY:
-            raise ValueError("GEMINI_API_KEY tidak ditemukan di environment variables.")
-        genai.configure(api_key=GEMINI_API_KEY)
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+        if not GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY tidak ditemukan di environment variables.")
+        self.client = Groq(api_key=GROQ_API_KEY)
+        self.model = 'llama-3.3-70b-versatile'
 
     def explain_term(self, term: str, context: str = None) -> str:
         prompt = f"Jelaskan istilah saham berikut secara singkat (maksimal 2-3 kalimat) dan menggunakan bahasa yang sangat mudah dipahami oleh orang awam yang baru belajar investasi saham: {term}."
@@ -21,7 +21,20 @@ class AIExplanationService:
             prompt += f"\n\nKonteks tambahan: {context}. Masukkan konteks spesifik ini ke dalam penjelasanmu."
         
         try:
-            response = self.model.generate_content(prompt)
-            return response.text.strip()
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+                model=self.model,
+                temperature=0.7,
+                max_tokens=256
+            )
+            return chat_completion.choices[0].message.content.strip()
         except Exception as e:
-            raise Exception(f"Gagal mendapatkan penjelasan dari AI: {str(e)}")
+            err_msg = str(e)
+            if "429" in err_msg or "rate_limit" in err_msg.lower() or "quota" in err_msg.lower():
+                raise Exception("Limit layanan AI sedang habis karena terlalu banyak permintaan. Silakan coba lagi dalam beberapa menit.")
+            raise Exception(f"Gagal mendapatkan penjelasan dari AI: {err_msg}")
