@@ -6,6 +6,7 @@ from typing import List, Optional
 from services.deteksi_anomali import AnomalyDetector
 from services.optimasi_portofolio import PortfolioOptimizer
 from services.clustering_service import ClusteringService
+from services.ai_explanation import AIExplanationService
 
 app = FastAPI(
     title="Stockation AI API",
@@ -108,3 +109,26 @@ def recommend_portfolio(req: RecommendRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+class ExplainRequest(BaseModel):
+    term: str
+    context: Optional[str] = None
+
+@app.post("/api/ai/explain")
+def explain_term(req: ExplainRequest):
+    """
+    Endpoint untuk mendapatkan penjelasan dari AI (Gemini) terkait istilah saham.
+    """
+    try:
+        service = AIExplanationService()
+        explanation = service.explain_term(req.term, req.context)
+        return {
+            "success": True,
+            "data": {
+                "term": req.term,
+                "context": req.context,
+                "explanation": explanation
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
