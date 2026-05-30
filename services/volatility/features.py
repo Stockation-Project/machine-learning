@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from src.config import LOOKBACK
+from services.volatility.config import IHSG_TICKER, LOOKBACK
 
 
 # ============================================================
@@ -34,6 +34,24 @@ def compute_macd(series: pd.Series) -> pd.Series:
     ema12 = series.ewm(span=12, adjust=False).mean()
     ema26 = series.ewm(span=26, adjust=False).mean()
     return ema12 - ema26
+
+
+# ============================================================
+# FETCH IHSG RETURN
+# ============================================================
+
+def _fetch_ihsg(period: str) -> pd.DataFrame:
+
+    raw = yf.download(IHSG_TICKER, period=period, auto_adjust=False, progress=False)
+
+    if isinstance(raw.columns, pd.MultiIndex):
+        raw.columns = raw.columns.get_level_values(0)
+
+    raw = raw.reset_index()
+    raw.columns = [c.lower().replace(" ", "_") for c in raw.columns]
+    raw["ihsg_return"] = np.log(raw["close"] / raw["close"].shift(1))
+
+    return raw[["date", "ihsg_return"]]
 
 
 # ============================================================
@@ -105,6 +123,14 @@ def build_features(ticker: str, lookback: int = LOOKBACK) -> pd.DataFrame:
     # ----------------------------------------------------------
     raw["macd"]            = compute_macd(raw["close"])
     raw["macd_normalized"] = raw["macd"] / raw["close"]
+
+    # ----------------------------------------------------------
+    # IHSG RETURN
+    # ----------------------------------------------------------
+    ihsg = _fetch_ihsg(download_period)
+    raw["date"] = pd.to_datetime(raw["date"])
+    ihsg["date"] = pd.to_datetime(ihsg["date"])
+    raw = raw.merge(ihsg, on="date", how="left")
 
     # ----------------------------------------------------------
     # CLEAN

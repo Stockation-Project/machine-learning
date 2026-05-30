@@ -7,14 +7,13 @@ import json
 import joblib
 import tensorflow as tf
 
-from src.config import (
+from services.volatility.config import (
     MODEL_PATH,
     STOCK_SCALERS_PATH,
     TICKER_ENCODER_PATH,
     SECTOR_ENCODER_PATH,
     INDUSTRY_ENCODER_PATH,
     FEATURE_INFO_PATH,
-    TICKER_METADATA_PATH
 )
 
 
@@ -61,9 +60,6 @@ def load_artifacts() -> dict:
     with open(FEATURE_INFO_PATH) as f:
         feature_info = json.load(f)
 
-    with open(TICKER_METADATA_PATH) as f:       
-        ticker_metadata = json.load(f)          
-
     return {
         "model":            model,
         "stock_scalers":    stock_scalers,
@@ -71,5 +67,4 @@ def load_artifacts() -> dict:
         "sector_encoder":   sector_encoder,
         "industry_encoder": industry_encoder,
         "feature_info":     feature_info,
-        "ticker_metadata":  ticker_metadata
     }

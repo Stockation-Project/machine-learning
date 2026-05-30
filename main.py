@@ -9,9 +9,9 @@ from services.optimasi_portofolio import PortfolioOptimizer
 from services.clustering_service import ClusteringService
 from services.ai_explanation import AIExplanationService
 
-from core.volatility.loader import load_artifacts
-from core.volatility.predictor import predict_one
-from core.volatility.schemas import PredictRequest, PredictResponse, to_response
+from services.volatility.loader import load_artifacts
+from services.volatility.predictor import predict_one
+from services.volatility.schemas import PredictRequest, PredictResponse, to_response
 
 volatility_artifacts = {}
 
@@ -167,4 +167,4 @@ def get_volatility_prediction(req: PredictRequest):
         return to_response(result)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
+

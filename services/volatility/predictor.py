@@ -6,8 +6,8 @@
 import numpy as np
 import pandas as pd
 
-from core.volatility.config import FEATURE_COLS, LOOKBACK, HORIZONS
-from core.volatility.features import build_features
+from services.volatility.config import FEATURE_COLS, LOOKBACK, HORIZONS
+from services.volatility.features import build_features
 
 
 # ============================================================

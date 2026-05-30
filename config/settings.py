@@ -1,6 +1,20 @@
 # config/settings.py
+# Konfigurasi terpusat untuk seluruh layanan Machine Learning
 
-# Konfigurasi batas anomali (berdasarkan variabel yang dipanggil tim AI-mu)
+from pathlib import Path
+
+# =============================================================================
+# BASE PATHS
+# =============================================================================
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+ARTIFACTS_DIR = BASE_DIR / "artifacts"
+DATA_DIR = BASE_DIR / "data"
+
+# =============================================================================
+# ANOMALY DETECTION CONFIG
+# =============================================================================
+
 ANOMALY_CONFIG = {
     "min_data_points": 30,
     "detect_price_spike": True,
@@ -13,7 +27,10 @@ ANOMALY_CONFIG = {
     "gap_threshold_pct": 5.0,
 }
 
-# Daftar metode optimasi
+# =============================================================================
+# PORTFOLIO OPTIMIZATION CONFIG
+# =============================================================================
+
 OPTIMIZATION_METHODS = {
     "max_sharpe": "Max Sharpe Ratio",
     "min_volatility": "Minimasi Volatilitas",
@@ -22,7 +39,6 @@ OPTIMIZATION_METHODS = {
     "equal_weight": "Bobot Sama Rata",
 }
 
-# Konfigurasi Profil Risiko
 RISK_PROFILES = {
     "konservatif": {
         "max_volatility": 0.10,
@@ -50,8 +66,46 @@ RISK_PROFILES = {
     }
 }
 
-# Limit slider toleransi risiko
 SLIDER_CONFIG = {
     "min": 0.0,
     "max": 1.0
 }
+
+# =============================================================================
+# CLUSTERING CONFIG
+# =============================================================================
+
+CLUSTERING_ARTIFACTS_DIR = ARTIFACTS_DIR / "clustering"
+
+IDX80_TICKERS = [
+    'AADI.JK', 'ACES.JK', 'ADMR.JK', 'ADRO.JK', 'AKRA.JK', 'AMMN.JK',
+    'AMRT.JK', 'ANTM.JK', 'ARTO.JK', 'ASII.JK', 'BBCA.JK', 'BBNI.JK',
+    'BBRI.JK', 'BBTN.JK', 'BMRI.JK', 'BREN.JK', 'BRMS.JK', 'BRPT.JK',
+    'BSDE.JK', 'BTPS.JK', 'BUKA.JK', 'BUMI.JK', 'CMRY.JK', 'CPIN.JK',
+    'CTRA.JK', 'CUAN.JK', 'DSNG.JK', 'DSSA.JK', 'ELSA.JK', 'EMTK.JK',
+    'ENRG.JK', 'ERAA.JK', 'ESSA.JK', 'EXCL.JK', 'GOTO.JK', 'HEAL.JK',
+    'HRTA.JK', 'HRUM.JK', 'ICBP.JK', 'INCO.JK', 'INDF.JK', 'INDY.JK',
+    'INKP.JK', 'INTP.JK', 'ISAT.JK', 'ITMG.JK', 'JPFA.JK', 'JSMR.JK',
+    'KIJA.JK', 'KLBF.JK', 'KPIG.JK', 'MAPA.JK', 'MAPI.JK', 'MBMA.JK',
+    'MDKA.JK', 'MEDC.JK', 'MIKA.JK', 'MTEL.JK', 'MYOR.JK', 'NCKL.JK',
+    'PANI.JK', 'PGAS.JK', 'PGEO.JK', 'PNLF.JK', 'PTBA.JK', 'PTRO.JK',
+    'PWON.JK', 'RAJA.JK', 'RATU.JK', 'SCMA.JK', 'SIDO.JK', 'SMGR.JK',
+    'SMRA.JK', 'SSIA.JK', 'TAPG.JK', 'TLKM.JK', 'TOWR.JK', 'UNTR.JK',
+    'UNVR.JK', 'WIFI.JK'
+]
+
+RAW_DATA_PATH = DATA_DIR / "idx80_raw.parquet"
+
+CLUSTERING_START_DATE = "2026-03-27"
+
+# Model settings
+CLUSTERING_SEQ_LENGTH = 30
+CLUSTERING_LATENT_DIM = 32
+CLUSTERING_N_CLUSTERS = 3
+CLUSTERING_RETRAIN_FREQUENCY = "daily"
+
+# =============================================================================
+# VOLATILITY FORECASTING CONFIG
+# =============================================================================
+
+VOLATILITY_ARTIFACTS_DIR = ARTIFACTS_DIR / "volatility"

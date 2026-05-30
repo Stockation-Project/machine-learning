@@ -1,22 +1,24 @@
+# services/volatility/config.py
 # ============================================================
-# CONFIG
+# CONFIG — Volatility Forecasting
 # ============================================================
 
 import os
+from pathlib import Path
 
 # ============================================================
-# PATHS
+# BASE PATHS
 # ============================================================
 
-BASE_DIR    = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MODELS_DIR  = os.path.join(BASE_DIR, "models")
+BASE_DIR     = Path(__file__).resolve().parent.parent.parent
+ARTIFACTS_DIR = BASE_DIR / "artifacts" / "volatility"
 
-MODEL_PATH          = os.path.join(MODELS_DIR, "multi_horizon_model.keras")
-STOCK_SCALERS_PATH  = os.path.join(MODELS_DIR, "stock_scalers.pkl")
-TICKER_ENCODER_PATH = os.path.join(MODELS_DIR, "ticker_encoder.pkl")
-SECTOR_ENCODER_PATH = os.path.join(MODELS_DIR, "sector_encoder.pkl")
-INDUSTRY_ENCODER_PATH = os.path.join(MODELS_DIR, "industry_encoder.pkl")
-FEATURE_INFO_PATH   = os.path.join(MODELS_DIR, "feature_info.json")
+MODEL_PATH           = str(ARTIFACTS_DIR / "multi_horizon_model.keras")
+STOCK_SCALERS_PATH   = str(ARTIFACTS_DIR / "stock_scalers.pkl")
+TICKER_ENCODER_PATH  = str(ARTIFACTS_DIR / "ticker_encoder.pkl")
+SECTOR_ENCODER_PATH  = str(ARTIFACTS_DIR / "sector_encoder.pkl")
+INDUSTRY_ENCODER_PATH = str(ARTIFACTS_DIR / "industry_encoder.pkl")
+FEATURE_INFO_PATH    = str(ARTIFACTS_DIR / "feature_info.json")
 
 # ============================================================
 # FEATURE COLS — same order as training
