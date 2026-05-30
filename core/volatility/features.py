@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-from src.config import IHSG_TICKER, LOOKBACK
+from core.volatility.config import IHSG_TICKER, LOOKBACK
 
 
 # ============================================================

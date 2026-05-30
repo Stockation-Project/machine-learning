@@ -7,7 +7,7 @@ import json
 import joblib
 import tensorflow as tf
 
-from src.config import (
+from core.volatility.config import (
     MODEL_PATH,
     STOCK_SCALERS_PATH,
     TICKER_ENCODER_PATH,

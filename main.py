@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
+import contextlib
 
 # Mengimpor class yang sudah dibuat tim AI-mu
 from services.deteksi_anomali import AnomalyDetector
@@ -8,10 +9,25 @@ from services.optimasi_portofolio import PortfolioOptimizer
 from services.clustering_service import ClusteringService
 from services.ai_explanation import AIExplanationService
 
+from core.volatility.loader import load_artifacts
+from core.volatility.predictor import predict_one
+from core.volatility.schemas import PredictRequest, PredictResponse, to_response
+
+volatility_artifacts = {}
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Loading Volatility model artifacts...")
+    volatility_artifacts.update(load_artifacts())
+    print("Volatility Model ready.")
+    yield
+    volatility_artifacts.clear()
+
 app = FastAPI(
     title="Stockation AI API",
     description="Microservice AI untuk memproses anomali dan optimasi portofolio",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # ---------------------------------------------------------
@@ -131,4 +147,24 @@ def explain_term(req: ExplainRequest):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/volatility", response_model=PredictResponse)
+def get_volatility_prediction(req: PredictRequest):
+    """
+    Endpoint untuk memprediksi risiko / volatilitas saham dalam 10D, 1M, 3M
+    """
+    try:
+        if not volatility_artifacts:
+            raise HTTPException(status_code=503, detail="Model belum siap.")
+            
+        result = predict_one(
+            ticker=req.ticker,
+            sector=req.sector,
+            industry=req.industry,
+            artifacts=volatility_artifacts,
+        )
+        return to_response(result)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
