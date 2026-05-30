@@ -1,3 +1,5 @@
+# models/clustering.py
+
 import joblib
 import pandas as pd
 
@@ -62,8 +64,8 @@ class StockClusterModel:
 
     def save_models(
         self,
-        kmeans_path="models/kmeans.pkl",
-        scaler_path="models/latent_scaler.pkl",
+        kmeans_path="artifacts/clustering/kmeans.pkl",
+        scaler_path="artifacts/clustering/latent_scaler.pkl",
     ):
 
         """
@@ -82,8 +84,8 @@ class StockClusterModel:
 
     def load_models(
         self,
-        kmeans_path="models/kmeans.pkl",
-        scaler_path="models/latent_scaler.pkl",
+        kmeans_path="artifacts/clustering/kmeans.pkl",
+        scaler_path="artifacts/clustering/latent_scaler.pkl",
     ):
 
         """
