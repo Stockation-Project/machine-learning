@@ -1,15 +1,16 @@
+# models/data_updater.py
+
 import pandas as pd
 import yfinance as yf
 
-from clustering.config import (
+from config.settings import (
     IDX80_TICKERS,
     RAW_DATA_PATH,
-    START_DATE,
+    CLUSTERING_START_DATE as START_DATE,
 )
 
-from clustering.logger import setup_logger
-
-logger = setup_logger()
+import logging
+logger = logging.getLogger(__name__)
 
 
 class IDX80DataUpdater:
@@ -70,14 +71,14 @@ class IDX80DataUpdater:
         logger.info("Download complete")
 
         return combined
-    
+
     def update_master_dataset(self):
 
         # Load existing historical data
         historical_data = pd.read_parquet(
             RAW_DATA_PATH
         )
-        
+
         historical_data["Date"] = pd.to_datetime(
             historical_data["Date"]
         )

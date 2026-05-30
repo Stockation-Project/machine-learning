@@ -1,4 +1,4 @@
-# src/autoencoder.py
+# models/autoencoder.py
 
 import pandas as pd
 import tensorflow as tf

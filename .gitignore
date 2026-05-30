@@ -5,6 +5,13 @@ env/
 # File Cache Python
 __pycache__/
 *.pyc
+*.pyo
 
 # Konfigurasi / Rahasia
 .env
+
+# Data files (optional — uncomment jika tidak ingin commit dataset)
+# data/*.parquet
+
+# Model artifacts (optional — uncomment jika menggunakan remote model storage)
+# artifacts/

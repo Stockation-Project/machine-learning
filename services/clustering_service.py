@@ -5,20 +5,20 @@ import numpy as np
 import tensorflow as tf
 from pathlib import Path
 
-# Import components from clustering folder
-from clustering.preprocessor import SequencePreprocessor
-from clustering.autoencoder import CNNAutoencoder
-from clustering.clustering import StockClusterModel
-from clustering.data_updater import IDX80DataUpdater
+# Import components from models folder
+from models.preprocessor import SequencePreprocessor
+from models.autoencoder import CNNAutoencoder
+from models.clustering import StockClusterModel
+from models.data_updater import IDX80DataUpdater
 
 
 class ClusteringService:
 
     def __init__(self):
 
-        # Base path
+        # Base path to clustering artifacts
         self.base_path = (
-            Path(__file__).resolve().parent.parent / "clustering"
+            Path(__file__).resolve().parent.parent / "artifacts" / "clustering"
         )
 
         # Paths to models

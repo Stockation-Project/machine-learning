@@ -1,4 +1,4 @@
-# src/preprocessing.py
+# models/preprocessor.py
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ class SequencePreprocessor:
     def __init__(
         self,
         seq_length=60,
-        scaler_path="models/sequence_scaler.pkl",
+        scaler_path="artifacts/clustering/sequence_scaler.pkl",
     ):
 
         self.seq_length = seq_length
