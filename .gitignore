@@ -15,3 +15,6 @@ __pycache__/
 
 # Model artifacts (optional — uncomment jika menggunakan remote model storage)
 # artifacts/
+
+# CA bundle gabungan — di-generate otomatis per-mesin oleh core/ssl_setup.py
+artifacts/system_ca_bundle.pem
