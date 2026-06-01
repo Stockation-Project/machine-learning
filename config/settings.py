@@ -32,6 +32,7 @@ ANOMALY_CONFIG = {
 # =============================================================================
 
 OPTIMIZATION_METHODS = {
+    "mean_cvar": "Mean-CVaR (Conditional Value at Risk)",
     "max_sharpe": "Max Sharpe Ratio",
     "min_volatility": "Minimasi Volatilitas",
     "max_return": "Maksimalkan Return",
@@ -39,6 +40,13 @@ OPTIMIZATION_METHODS = {
     "equal_weight": "Bobot Sama Rata",
 }
 
+# Profil risiko menentukan:
+#   - batas konsentrasi bobot (min_weight / max_weight)
+#   - posisi default slider risk_tolerance (default_risk_tolerance)
+#   - tingkat kepercayaan CVaR (cvar_confidence)
+# Slider risk_tolerance (0..1) menggeser target return pada efficient
+# frontier CVaR: 0.0 = minimasi CVaR (paling aman), 1.0 = kejar return
+# maksimum (paling agresif). Default mengikuti profil risiko user.
 RISK_PROFILES = {
     "konservatif": {
         "max_volatility": 0.10,
@@ -46,7 +54,9 @@ RISK_PROFILES = {
         "risk_free_rate": 0.05,
         "min_weight": 0.05,
         "max_weight": 0.40,
-        "method": "min_volatility"
+        "method": "mean_cvar",
+        "default_risk_tolerance": 0.20,
+        "cvar_confidence": 0.95,
     },
     "moderat": {
         "max_volatility": 0.15,
@@ -54,7 +64,9 @@ RISK_PROFILES = {
         "risk_free_rate": 0.05,
         "min_weight": 0.05,
         "max_weight": 0.50,
-        "method": "max_sharpe"
+        "method": "mean_cvar",
+        "default_risk_tolerance": 0.50,
+        "cvar_confidence": 0.95,
     },
     "agresif": {
         "max_volatility": 0.25,
@@ -62,7 +74,9 @@ RISK_PROFILES = {
         "risk_free_rate": 0.05,
         "min_weight": 0.05,
         "max_weight": 0.80,
-        "method": "max_return"
+        "method": "mean_cvar",
+        "default_risk_tolerance": 0.80,
+        "cvar_confidence": 0.90,
     }
 }
 

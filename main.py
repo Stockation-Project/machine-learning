@@ -1,3 +1,8 @@
+# Konfigurasi SSL CA bundle PALING AWAL — sebelum import apa pun yang
+# melakukan koneksi HTTPS (yfinance, requests, supabase). Ini mengatasi
+# error verifikasi sertifikat di lingkungan dengan antivirus/proxy TLS.
+import core.ssl_setup  # noqa: F401  (side-effect import)
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
@@ -71,12 +76,14 @@ def get_anomalies(ticker: str, period_key: str = "1_tahun"):
 @app.post("/api/ai/optimize")
 def optimize_portfolio(req: OptimizeRequest):
     """
-    Endpoint untuk menghitung bobot optimal dari saham yang dipilih user
+    Endpoint untuk menghitung bobot optimal dari saham yang dipilih user.
+    Risiko memakai volatilitas PREDIKSI (model LSTM) bila artefak tersedia.
     """
     try:
         optimizer = PortfolioOptimizer(
             risk_profile=req.risk_profile,
-            risk_tolerance=req.risk_tolerance
+            risk_tolerance=req.risk_tolerance,
+            vol_artifacts=volatility_artifacts or None,
         )
         result = optimizer.optimize(tickers=req.tickers, period_key=req.period_key)
         
