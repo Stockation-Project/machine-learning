@@ -24,7 +24,7 @@ def vol_to_price_range(
 ) -> tuple[float, float]:
 
     days       = HORIZONS[horizon]
-    multiplier = vol * np.sqrt(days)
+    multiplier = vol * np.sqrt(days / 252)
     upper      = current_price * np.exp(+multiplier)
     lower      = current_price * np.exp(-multiplier)
     return round(lower, 2), round(upper, 2)
