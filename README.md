@@ -42,9 +42,6 @@ machine-learning/
 ├── data/
 │   └── idx80_raw.parquet # Dataset historis IDX80
 │
-├── dashboard/
-│   └── dashboard.py      # Streamlit companion app
-│
 ├── notebooks/            # Jupyter notebooks eksperimen & training
 ├── tests/                # Test files
 ├── scripts/              # Utility scripts ad-hoc
@@ -94,15 +91,6 @@ uvicorn main:app --reload --port 8000
 API akan tersedia di `http://127.0.0.1:8000`
 Dokumentasi interaktif: `http://127.0.0.1:8000/docs`
 
-### Streamlit Dashboard
-
-```bash
-streamlit run dashboard/dashboard.py
-```
-
-Dashboard akan tersedia di `http://localhost:8501`
-
----
 
 ## 📡 API Endpoints
 
@@ -217,7 +205,7 @@ python tests/test_ai_explanation.py # Test Groq AI service
 | `pandas` / `numpy` | Data processing |
 | `scipy` | Optimasi portofolio |
 | `groq` | Groq LLM API client |
-| `streamlit` | Dashboard visualisasi |
+
 | `pyarrow` | Baca/tulis parquet |
 
 ---
