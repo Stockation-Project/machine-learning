@@ -2,6 +2,12 @@
 import yfinance as yf
 import pandas as pd
 
+
+# Bandingkan slider risiko dengan snapshot harga yang sama. Tanpa cache ini,
+# setiap geseran mengunduh ulang data dan metrik CVaR dapat berubah meski bobot
+# alokasi tidak berubah.
+_price_cache: dict[tuple[tuple[str, ...], str], pd.DataFrame] = {}
+
 class DataFetcher:
     def _get_yfinance_period(self, period_key: str) -> str:
         # Mengubah format key ke format yang dikenali yfinance
@@ -11,7 +17,8 @@ class DataFetcher:
             "6_bulan": "6mo",
             "1_tahun": "1y",
             "3_tahun": "3y",
-            "5_tahun": "5y"
+            "5_tahun": "5y",
+            "10_tahun": "10y",
         }
         return mapping.get(period_key, "1y")
 
@@ -26,6 +33,11 @@ class DataFetcher:
         """Mengambil harga Close untuk banyak saham sekaligus untuk optimasi."""
         if not tickers:
             return pd.DataFrame()
+
+        cache_key = (tuple(tickers), period_key)
+        cached = _price_cache.get(cache_key)
+        if cached is not None:
+            return cached.copy()
             
         period = self._get_yfinance_period(period_key)
         # Unduh data secara massal tanpa memunculkan progress bar
@@ -35,6 +47,9 @@ class DataFetcher:
         if len(tickers) == 1:
             df = data[['Close']].copy()
             df.columns = [tickers[0]]
+            _price_cache[cache_key] = df.copy()
             return df
         else:
-            return data['Close']
+            df = data['Close'].copy()
+            _price_cache[cache_key] = df.copy()
+            return df
