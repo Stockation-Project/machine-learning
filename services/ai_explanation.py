@@ -13,7 +13,7 @@ class AIExplanationService:
         if not GROQ_API_KEY:
             raise ValueError("GROQ_API_KEY tidak ditemukan di environment variables.")
         self.client = Groq(api_key=GROQ_API_KEY)
-        self.model = 'llama-3.3-70b-versatile'
+        self.model = 'openai/gpt-oss-120b'
 
     def explain_term(self, term: str, context: str = None) -> str:
         prompt = f"Jelaskan istilah saham berikut secara singkat (maksimal 2-3 kalimat) dan menggunakan bahasa yang sangat mudah dipahami oleh orang awam yang baru belajar investasi saham: {term}."
