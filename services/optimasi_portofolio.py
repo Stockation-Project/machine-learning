@@ -51,6 +51,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize, linprog
+from scipy.stats import kendalltau
 
 from config.settings import OPTIMIZATION_METHODS, RISK_PROFILES, SLIDER_CONFIG
 from core.data_fetcher import DataFetcher
@@ -321,6 +322,7 @@ class PortfolioOptimizer:
             weights, mean_returns, cov_matrix
         )
         port_cvar = self._portfolio_cvar(weights, returns_opt)
+        pairwise_downside = self._pairwise_downside_dependence(returns)
 
         result = OptimizationResult(
             weights=dict(zip(tickers_used, weights)),
@@ -339,6 +341,7 @@ class PortfolioOptimizer:
                 "cvar_confidence": self.profile_cfg.get("cvar_confidence", 0.95),
                 "volatility_source": "forecast" if vol_forecast_used else "historical",
                 "volatility_per_ticker": vol_sources,
+                "pairwise_downside": pairwise_downside,
             },
         )
 
@@ -348,6 +351,70 @@ class PortfolioOptimizer:
             f"CVaR={port_cvar:.2%} Sharpe={sharpe:.3f}"
         )
         return result
+
+    @staticmethod
+    def _pairwise_downside_dependence(
+        returns: pd.DataFrame,
+        tail_quantile: float = 0.05,
+    ) -> list[dict]:
+        """Estimasi risiko jatuh ekstrem bersama dengan Clayton Copula.
+
+        Kendall's tau setiap pasangan diubah menjadi parameter Clayton. Nilai
+        probabilitas yang dilaporkan bersifat kondisional: peluang saham kedua
+        masuk 5% return terburuk ketika saham pertama juga berada di ekor itu.
+        Clayton hanya mendukung dependensi positif; pasangan dengan tau <= 0
+        dilaporkan sebagai dependensi ekor 0 (baseline independen = 5%).
+        """
+        results: list[dict] = []
+        columns = list(returns.columns)
+
+        for i, ticker_a in enumerate(columns):
+            for ticker_b in columns[i + 1:]:
+                pair = returns[[ticker_a, ticker_b]].dropna()
+                observations = len(pair)
+                if observations < 30:
+                    continue
+
+                tau_value, _ = kendalltau(pair[ticker_a], pair[ticker_b])
+                tau = float(tau_value) if np.isfinite(tau_value) else 0.0
+                tau = max(0.0, min(tau, 0.99))
+
+                if tau <= 1e-6:
+                    theta = 0.0
+                    lower_tail = 0.0
+                    conditional_probability = tail_quantile
+                else:
+                    theta = 2.0 * tau / (1.0 - tau)
+                    lower_tail = 2.0 ** (-1.0 / theta)
+                    joint_probability = (
+                        2.0 * (tail_quantile ** -theta) - 1.0
+                    ) ** (-1.0 / theta)
+                    conditional_probability = joint_probability / tail_quantile
+
+                if conditional_probability >= 0.50:
+                    level = "tinggi"
+                elif conditional_probability >= 0.20:
+                    level = "sedang"
+                else:
+                    level = "rendah"
+
+                results.append({
+                    "ticker_a": ticker_a,
+                    "ticker_b": ticker_b,
+                    "level": level,
+                    "conditional_probability": round(float(conditional_probability), 4),
+                    "lower_tail_dependence": round(float(lower_tail), 4),
+                    "kendall_tau": round(float(tau), 4),
+                    "tail_quantile": tail_quantile,
+                    "observations": observations,
+                    "model": "clayton",
+                })
+
+        return sorted(
+            results,
+            key=lambda item: item["conditional_probability"],
+            reverse=True,
+        )
 
     # ─────────────────────────────────────────────
     # PUBLIC — ALUR 2: SISTEM REKOMENDASIKAN SAHAM
@@ -766,6 +833,10 @@ class PortfolioOptimizer:
         min_w = self.profile_cfg["min_weight"]
         max_w = self.profile_cfg["max_weight"]
         weights = np.clip(weights, min_w, max_w)
+        # Solver linear dapat menghasilkan selisih sekitar 1e-16 untuk solusi
+        # yang secara praktis sama. Bulatkan sebelum CVaR dihitung agar batas
+        # kuantil tidak berubah hanya akibat noise numerik.
+        weights = np.round(weights, 10)
         total = weights.sum()
         return weights / total if total > 0 else np.ones(n) / n
 

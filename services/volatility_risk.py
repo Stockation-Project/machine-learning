@@ -30,6 +30,11 @@ logger = logging.getLogger(__name__)
 
 TRADING_DAYS = 252
 
+# Satu sesi optimasi dapat memanggil model berulang saat slider digeser.
+# Simpan prediksi per ticker agar setiap perbandingan slider memakai asumsi
+# volatilitas yang sama; tanpa ini angka CVaR bisa berubah walau bobotnya sama.
+_forecast_vol_cache: dict[str, float] = {}
+
 # Horizon prediksi → bobot kepercayaan untuk membentuk satu angka volatilitas.
 # Lebih menekankan horizon menengah (1 bulan) sebagai estimasi risiko utama.
 _HORIZON_WEIGHTS = {
@@ -121,6 +126,11 @@ def forecast_annual_volatilities(
 
     for t in tickers:
         fallback = float(hist_vol.get(t, np.nan))
+        cached = _forecast_vol_cache.get(t)
+        if cached is not None and np.isfinite(cached) and cached > 0:
+            vols[t] = cached
+            sources[t] = "forecast"
+            continue
         si = _resolve_sector_industry(t)
         if si is None:
             vols[t] = fallback
@@ -133,6 +143,7 @@ def forecast_annual_volatilities(
             if np.isfinite(v) and v > 0:
                 vols[t] = v
                 sources[t] = "forecast"
+                _forecast_vol_cache[t] = v
             else:
                 vols[t] = fallback
                 sources[t] = "historical"

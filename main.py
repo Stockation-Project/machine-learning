@@ -43,6 +43,7 @@ class OptimizeRequest(BaseModel):
     risk_profile: str = "moderat"
     risk_tolerance: Optional[float] = None
     period_key: str = "1_tahun"
+    method: Optional[str] = None
 
 class RecommendRequest(BaseModel):
     universe: List[str]
@@ -85,7 +86,11 @@ def optimize_portfolio(req: OptimizeRequest):
             risk_tolerance=req.risk_tolerance,
             vol_artifacts=volatility_artifacts or None,
         )
-        result = optimizer.optimize(tickers=req.tickers, period_key=req.period_key)
+        result = optimizer.optimize(
+            tickers=req.tickers,
+            period_key=req.period_key,
+            method="mean_cvar",
+        )
         
         return {
             "success": True,
